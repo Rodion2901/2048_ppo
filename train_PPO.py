@@ -19,21 +19,18 @@ for episode in range(1, episodes+1):
     total_reward = 0
     while not done:
         time_step += 1
-        action, log_probs = agent.act(state)
+        action = agent.act(state, memory)
         next_state, reward, done = game.step(action)
 
-        memory.states.append(state)
-        memory.actions.append(action)
-        memory.logprobs.append(log_probs)
-        memory.rewards.append(reward)
-        memory.dones.append(done)
+        memory.push(reward, done)
+
         if time_step % update_timestep == 0:
             agent.update(memory)
             memory.clear()
         state = next_state
         
         total_reward += reward
-        if ((episode % 50 == 0 ) or (episode>200))and (done):
+        if (episode % 50 == 0)and (done):
              print(f"Episode: {episode}")
              pretty_print(state)
     reward_history.append(total_reward)
@@ -42,7 +39,5 @@ for episode in range(1, episodes+1):
             print(
                 f"Episode: {episode}, "
                 f"Success Rate: {success_rate:.2%}, "
+                f"reward: {reward_history[-100:]} "
             )
-
-
-    
