@@ -50,7 +50,7 @@ def act_l(m):
               place_rand_2(new_map)
               return new_map, reward-1
        else:
-              return m, -10
+              return m, -1
 
 #функция ход вправо
 def act_r(m):
@@ -61,7 +61,7 @@ def act_r(m):
               new_map = [r[::-1] for r in new_map]
               return new_map, reward-1
        else:
-              return m, -10
+              return m, -1
 #функция ход вверх
 def act_u(m):
        trans_map = [list(col) for col in list(zip(*m))]
@@ -71,7 +71,7 @@ def act_u(m):
               place_rand_2(new_map)
               return new_map, reward -1
        else:
-              return m, -10
+              return m, -1
 #функция ход вниз
 def act_d(m):
        trans_map = [list(col) for col in list(zip(*m))]
@@ -82,7 +82,7 @@ def act_d(m):
               place_rand_2(new_map)
               return new_map, reward -1
        else:
-              return m, -10
+              return m, -1
 
 def is_game_over(m):
        if len(zero_place(m)) != 0:
@@ -92,7 +92,7 @@ def is_game_over(m):
                      if (m[i][j] == m[i+1][j]) or (m[i][j] == m[i][j+1]):
                             return False
        for i in range(3):
-              if m[3][i] == m[3][i+1]:
+              if m[i][3] == m[i+1][3]:
                      return False
        return True
 
@@ -103,7 +103,9 @@ class game_2048:
                           [0,0,0,0],
                           [0,0,0,0],
                           [0,0,0,0]]
+              pretty_print(self.map)
        def step(self, action):
+              action = action[0]
               if action == 0:
                      self.map, reward = act_r(self.map)
               elif action == 1:

@@ -41,20 +41,23 @@ class PPOAgent:
         self.policy = PPO(state_dim, action_dim)
         self.old_policy = PPO(state_dim, action_dim)
         self.old_policy.load_state_dict(self.policy.state_dict())
-
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr = self.lr)
         self.MseLoss = nn.MSELoss()
 
-    def act(self, state):
+    def act(self, state, memory):
         state = preprocess(state)
 
         with torch.no_grad():
             probs, _ = self.old_policy(state)
         dist = Categorical(probs)
         action = dist.sample()
-        return action.item(), dist.log_prob(action).item()
+        logprobs = dist.log_prob(action).detach().cpu()
+        memory.states.append(state.detach().cpu())
+        memory.actions.append(action.detach().cpu())
+        memory.logprobs.append(logprobs.detach().cpu())
+        return action.item(), 
     def update(self, memory):
-        old_states = torch.FloatTensor(np.array(memory.states)).unsqueeze(1)
+        old_states = torch.FloatTensor(np.array(memory.states)).squeeze(1)
         old_actions = torch.LongTensor(np.array(memory.actions))
         old_logprobs = torch.FloatTensor(np.array(memory.logprobs)).unsqueeze(0)
         
@@ -91,5 +94,8 @@ class Memory:
         self.logprobs = []
         self.rewards = []
         self.dones = []
+    def push(self, reward, done):
+        self.rewards.append(reward)
+        self.dones.append(done)
     def clear(self):
         del self.states[:], self.actions[:], self.logprobs[:], self.rewards[:], self.dones[:]
