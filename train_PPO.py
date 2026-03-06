@@ -3,8 +3,15 @@ from Game import pretty_print
 from PPO import PPOAgent
 from PPO import Memory
 import numpy as np
-episodes = 300
+episodes = 1000
 
+def source_max_result(map):
+    a = 0
+    for i in map:
+         for j in range(4):
+              if a < i[j]:
+                   a = i[j]
+    return a
 game = game_2048()
 state_dim = game.map
 action_dim = 4
@@ -13,6 +20,7 @@ memory = Memory()
 reward_history = []
 update_timestep = 2000
 time_step = 0
+max_results = []
 for episode in range(1, episodes+1):
     state = game.reset()
     done = False
@@ -30,14 +38,10 @@ for episode in range(1, episodes+1):
         state = next_state
         
         total_reward += reward
-        if (episode % 50 == 0)and (done):
-             print(f"Episode: {episode}")
-             pretty_print(state)
     reward_history.append(total_reward)
+    max_results.append(source_max_result(state))
     if episode % 100 == 0:
-            success_rate = np.mean([1 if r > 0 else 0 for r in reward_history[-100:]])
             print(
                 f"Episode: {episode}, "
-                f"Success Rate: {success_rate:.2%}, "
-                f"reward: {reward_history[-100:]} "
+                f"максимальный результат: {max(max_results)}"
             )
