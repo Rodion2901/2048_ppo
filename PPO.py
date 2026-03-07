@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import os
 from torch.distributions import Categorical
 
 def preprocess(state):
@@ -66,7 +67,7 @@ class PPOAgent:
         for reward, done in zip(reversed(memory.rewards), reversed(memory.dones)):
             if done:
                 reward_ebatkakoi = 0
-            reward_ebatkakoi = reward_ebatkakoi + (self.gamma*reward)
+            reward_ebatkakoi = reward + (self.gamma * reward_ebatkakoi) 
             rewards.insert(0, reward_ebatkakoi)
         rewards = torch.FloatTensor(rewards)
         rewards = (rewards - rewards.mean())/(rewards.std() + 1e-8)
@@ -77,16 +78,17 @@ class PPOAgent:
             dist_entropy = dist.entropy()
             logprobs = dist.log_prob(old_actions)
 
-            advantages = rewards - predict
+            advantages = rewards - predict.detach()
             advantages = (advantages - advantages.mean())/(advantages.std() + 1e-8)
-            ratios = torch.exp(logprobs - old_logprobs.detach())
+            ratios = torch.exp(logprobs - old_logprobs)
             surr1 = advantages*ratios
             surr2 = torch.clamp(ratios, 1-self.clamp, 1+self.clamp)*advantages
-            loss = -torch.min(surr1, surr2) - self.MseLoss(predict, rewards) - 0.01*dist_entropy
+            loss = -torch.min(surr1, surr2) + self.MseLoss(predict, rewards) - 0.01*dist_entropy
             self.optimizer.zero_grad()
             loss.mean().backward()
             self.optimizer.step()
         self.old_policy.load_state_dict(self.policy.state_dict())
+    
 class Memory:
     def __init__(self):
         self.states = []
@@ -99,3 +101,26 @@ class Memory:
         self.dones.append(done)
     def clear(self):
         del self.states[:], self.actions[:], self.logprobs[:], self.rewards[:], self.dones[:]
+
+def checkpoint(policy, optimizer, episode):
+        file = f"checkpoint_{episode}.tar"
+        folder = "checkpoint"
+        path = os.path.join(folder, file)
+        model = {
+            "policy": policy.state_dict(),
+            "optim": optimizer.state_dict()
+        }
+        if not os.path.exists("checkpoint"):
+            os.makedirs("checkpoint")
+        torch.save(model, path)
+        print("SAVE IS DONE")
+def load_checkpoint(agent, episode):
+        file = f"checkpoint_{episode}.tar"
+        folder = "checkpoint"
+        path = os.path.join(folder, file)
+        model = torch.load(path)
+        agent.policy.load_state_dict(model["policy"])
+        agent.optimizer.load_state_dict(model["optim"])
+        agent.old_policy.load_state_dict(agent.policy.state_dict())
+        print("load is done")
+        return agent
