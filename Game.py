@@ -1,5 +1,6 @@
 import random
 import math
+import numpy as np
 
 #pretty print
 def pretty_print(m):
@@ -83,6 +84,17 @@ def act_d(m):
               return new_map, reward -1
        else:
               return m, -1
+def is_plate_in_corner(map):
+       map = np.array(map)
+       a = map.max()
+       corner = [(0,0), (0,3), (3,0), (3,3)]
+
+       is_in_corner = any(map[i][j] == a for i,j in corner)
+
+       if is_in_corner:
+              return a * 0.5
+       else:
+              return -1
 
 def is_game_over(m):
        if len(zero_place(m)) != 0:
@@ -114,8 +126,9 @@ class game_2048:
                      self.map, reward = act_u(self.map)
               elif action == 3:
                      self.map, reward = act_d(self.map)
+              reward += is_plate_in_corner(self.map)
               if is_game_over(self.map):
-                     return self.map, reward-50, True
+                     return self.map, reward-5, True
               else:
                      return self.map, reward, False
        def reset(self):
