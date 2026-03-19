@@ -38,11 +38,12 @@ class PPOAgent:
         self.K_epochs = 4
         self.clamp = 0.2
         self.gamma = 0.995
-        self.lr = 0.001
+        self.lr = 0.005
         self.policy = PPO(state_dim, action_dim)
         self.old_policy = PPO(state_dim, action_dim)
         self.old_policy.load_state_dict(self.policy.state_dict())
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr = self.lr)
+        self.sheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma=0.999)
         self.MseLoss = nn.MSELoss()
 
     def act(self, state, memory):
@@ -56,7 +57,7 @@ class PPOAgent:
         memory.states.append(state.detach().cpu())
         memory.actions.append(action.detach().cpu())
         memory.logprobs.append(logprobs.detach().cpu())
-        return action.item(), 
+        return [action.item()]
     def update(self, memory):
         old_states = torch.FloatTensor(np.array(memory.states)).squeeze(1)
         old_actions = torch.LongTensor(np.array(memory.actions))
@@ -83,10 +84,11 @@ class PPOAgent:
             ratios = torch.exp(logprobs - old_logprobs)
             surr1 = advantages*ratios
             surr2 = torch.clamp(ratios, 1-self.clamp, 1+self.clamp)*advantages
-            loss = -torch.min(surr1, surr2) + self.MseLoss(predict, rewards) - 0.01*dist_entropy
+            loss = -torch.min(surr1, surr2).mean() + self.MseLoss(predict, rewards) - 0.01*dist_entropy
             self.optimizer.zero_grad()
             loss.mean().backward()
             self.optimizer.step()
+            self.sheduler.step()
         self.old_policy.load_state_dict(self.policy.state_dict())
     
 class Memory:
@@ -102,13 +104,15 @@ class Memory:
     def clear(self):
         del self.states[:], self.actions[:], self.logprobs[:], self.rewards[:], self.dones[:]
 
-def checkpoint(policy, optimizer, episode):
+def checkpoint(policy, optimizer, sheduler, episode):
         file = f"checkpoint_{episode}.tar"
         folder = "checkpoint"
         path = os.path.join(folder, file)
         model = {
             "policy": policy.state_dict(),
-            "optim": optimizer.state_dict()
+            "optim": optimizer.state_dict(),
+            "sheduler": sheduler.state_dict(),
+            "episode": episode
         }
         if not os.path.exists("checkpoint"):
             os.makedirs("checkpoint")
@@ -121,6 +125,7 @@ def load_checkpoint(agent, episode):
         model = torch.load(path)
         agent.policy.load_state_dict(model["policy"])
         agent.optimizer.load_state_dict(model["optim"])
+        agent.sheduler.load_state_dict(model["sheduler"])
         agent.old_policy.load_state_dict(agent.policy.state_dict())
         print("load is done")
         return agent
