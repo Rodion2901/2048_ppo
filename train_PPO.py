@@ -4,9 +4,13 @@ from PPO import Memory
 from PPO import checkpoint
 from PPO import load_checkpoint
 from Game import pretty_print
+import numpy as np
+from torch.utils.tensorboard import SummaryWriter
 
-episodes = 20000
-start_episode = 10000
+writer = SummaryWriter(log_dir="runs/2048_ppo_v1")
+
+episodes = 100
+start_episode = 1
 def source_max_result(map):
     a = 0
     for i in map:
@@ -20,8 +24,7 @@ action_dim = 4
 agent = PPOAgent(state_dim, action_dim)
 memory = Memory()
 reward_history = []
-update_timestep = 2000
-time_step = 0
+
 max_results = []
 if start_episode != 1:
     agent = load_checkpoint(agent, start_episode)
@@ -30,29 +33,37 @@ for episode in range(start_episode, episodes+1):
     done = False
     total_reward = 0
     while not done:
-        if episode % 500 == 0:
-             pretty_print(state)
-        time_step += 1
+
         action = agent.act(state, memory)
         next_state, reward, done = game.step(action)
 
         memory.push(reward, done)
 
-        if time_step % update_timestep == 0:
-            agent.update(memory)
-            memory.clear()
         state = next_state
         
         total_reward += reward
-        if episode % 500 == 0:
-             pretty_print(state)
+    agent.update(memory)
+    memory.clear()
+    
+    reward_history.append(total_reward)
+    max_tile = source_max_result(state)
+    max_results.append(max_tile)
+
+    writer.add_scalar('Reward/Total', total_reward, episode)
+    writer.add_scalar('Max_Tile', max_tile, episode)
+
+    if (max_tile >= 512)or(episode % 200 == 0):
+         pretty_print(state)
+
     reward_history.append(total_reward)
     max_results.append(source_max_result(state))
     if episode % 100 == 0:
             print(
                 f"Episode: {episode}, "
-                f"максимальный результат: {max(max_results)}"
+                f"максимальный результат: {max(max_results)}, "
+                f"lr in optimizer: {agent.optimizer.param_groups[0]['lr']:.5f}"
             )
-    if episode % 500 == 0:
-        checkpoint(agent.policy, agent.optimizer, episode)
+    if episode % 1000 == 0:
+        checkpoint(agent.policy, agent.optimizer, agent.scheduler, episode)
 print(max(max_results))
+writer.close()
